@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import connectDB from "./db/connectDB.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 
 // Route imports
 import userRouter from "./routes/auth.route.js";
@@ -16,7 +17,14 @@ import uploadRouter from "./routes/upload.route.js";
 
 
 const app = express();
+const corsOptions = {
+  origin: ["http://localhost:3000", "http://localhost:5173"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+   credentials: true,
+};
 
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));

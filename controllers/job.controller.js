@@ -83,6 +83,76 @@ export const createJob = async (req, res) => {
 // =================================================================================
 //    Get All Jobs (Public) — with filters & search
 // =================================================================================
+// export const getAllJobs = async (req, res) => {
+//   try {
+//     const {
+//       search,
+//       jobType,
+//       city,
+//       country,
+//       experienceMin,
+//       experienceMax,
+//       salaryMin,
+//       salaryMax,
+//       skills,
+//       isFeatured,
+//       page = 1,
+//       limit = 20,
+//     } = req.query;
+
+//     const query = { status: "approved" };
+
+//     // Exclude expired jobs
+//     query.$or = [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }];
+
+//     // Full-text search on title + description
+//     if (search) {
+//       query.$text = { $search: search };
+//     }
+
+//     if (jobType) query.jobType = jobType;
+//     if (city) query["location.city"] = new RegExp(city, "i");
+//     if (country) query["location.country"] = new RegExp(country, "i");
+//     if (isFeatured === "true") query.isFeatured = true;
+
+//     if (experienceMin) query.experienceMin = { $gte: Number(experienceMin) };
+//     if (experienceMax) query.experienceMax = { $lte: Number(experienceMax) };
+
+//     if (salaryMin) query["salary.min"] = { $gte: Number(salaryMin) };
+//     if (salaryMax) query["salary.max"] = { $lte: Number(salaryMax) };
+
+//     if (skills) {
+//       const skillArray = skills.split(",").map((s) => s.trim());
+//       query.skillsRequired = { $in: skillArray };
+//     }
+
+//     const skip = (Number(page) - 1) * Number(limit);
+//     const total = await Job.countDocuments(query);
+
+//     console.log("query", query);
+//     // console.log("Jobs")
+//     const jobs = await Job.find(query)
+//       .populate("companyId", "companyName logo location website")
+//       .sort({ isPremium: -1, premiumBoostDate: -1, createdAt: -1 })
+//       .skip(skip)
+//       .limit(Number(limit));
+
+//     return res.json({
+//       success: true,
+//       total,
+//       page: Number(page),
+//       pages: Math.ceil(total / Number(limit)),
+//       count: jobs.length,
+//       data: jobs,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 export const getAllJobs = async (req, res) => {
   try {
     const {
@@ -100,26 +170,46 @@ export const getAllJobs = async (req, res) => {
       limit = 20,
     } = req.query;
 
-    const query = { status: "approved" };
+    const query = {
+      status: "approved",
+      $and: [
+        {
+          $or: [
+            { expiresAt: null },
+            { expiresAt: { $gt: new Date() } },
+          ],
+        },
+      ],
+    };
 
-    // Exclude expired jobs
-    query.$or = [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }];
-
-    // Full-text search on title + description
     if (search) {
       query.$text = { $search: search };
     }
 
     if (jobType) query.jobType = jobType;
+
     if (city) query["location.city"] = new RegExp(city, "i");
     if (country) query["location.country"] = new RegExp(country, "i");
+
     if (isFeatured === "true") query.isFeatured = true;
 
-    if (experienceMin) query.experienceMin = { $gte: Number(experienceMin) };
-    if (experienceMax) query.experienceMax = { $lte: Number(experienceMax) };
+    // Experience Overlap Filter
+    if (experienceMin && experienceMax) {
+      query.experienceMin = { $lte: Number(experienceMax) };
+      query.experienceMax = { $gte: Number(experienceMin) };
+    } else {
+      if (experienceMin) query.experienceMax = { $gte: Number(experienceMin) };
+      if (experienceMax) query.experienceMin = { $lte: Number(experienceMax) };
+    }
 
-    if (salaryMin) query["salary.min"] = { $gte: Number(salaryMin) };
-    if (salaryMax) query["salary.max"] = { $lte: Number(salaryMax) };
+    // Salary Overlap Filter
+    if (salaryMin && salaryMax) {
+      query["salary.min"] = { $lte: Number(salaryMax) };
+      query["salary.max"] = { $gte: Number(salaryMin) };
+    } else {
+      if (salaryMin) query["salary.max"] = { $gte: Number(salaryMin) };
+      if (salaryMax) query["salary.min"] = { $lte: Number(salaryMax) };
+    }
 
     if (skills) {
       const skillArray = skills.split(",").map((s) => s.trim());
@@ -127,13 +217,16 @@ export const getAllJobs = async (req, res) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+
     const total = await Job.countDocuments(query);
 
-    console.log("query", query);
-    // console.log("Jobs")
     const jobs = await Job.find(query)
       .populate("companyId", "companyName logo location website")
-      .sort({ isPremium: -1, premiumBoostDate: -1, createdAt: -1 })
+      .sort({
+        isPremium: -1,
+        premiumBoostDate: -1,
+        createdAt: -1,
+      })
       .skip(skip)
       .limit(Number(limit));
 
@@ -160,7 +253,7 @@ export const getJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id).populate(
       "companyId",
-      "companyName logo location website industry about",
+      "companyName logo location website industry about companySize",
     );
 
     if (!job) {

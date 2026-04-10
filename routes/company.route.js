@@ -56,8 +56,8 @@ router.delete(
 // Public routes
 router.get(
   "/all-companies",
-  authMiddleware,
-  roleMiddleware("admin"),
+  // authMiddleware,
+  // roleMiddleware("admin", "candidate", "employer"),
   getAllCompanies,
 );
 router.get("/:id", getCompany);

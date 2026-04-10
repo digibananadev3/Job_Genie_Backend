@@ -115,11 +115,39 @@ export const getMyCompany = async (req, res) => {
 // =================================================================================
 export const getAllCompanies = async (req, res) => {
   try {
-    const companies = await Company.find().populate("userId", "name email");
+    const {
+      search,
+      page  = 1,
+      limit = 10,
+    } = req.query;
+
+    const filter = { isDeleted: false };
+
+    // Single search term checked across companyName, city, state, country
+    if (search?.trim()) {
+      filter.$or = [
+        { companyName: { $regex: search.trim(), $options: "i" } },
+        { city:        { $regex: search.trim(), $options: "i" } },
+        { state:       { $regex: search.trim(), $options: "i" } },
+        { country:     { $regex: search.trim(), $options: "i" } },
+      ];
+    }
+
+    const skip  = (Number(page) - 1) * Number(limit);
+    const total = await Company.countDocuments(filter);
+
+    const companies = await Company.find(filter)
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
 
     return res.json({
       success: true,
       count: companies.length,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
       data: companies,
     });
   } catch (error) {

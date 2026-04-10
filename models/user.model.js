@@ -3,6 +3,86 @@ import bcrypt from "bcryptjs";
 
 const { Schema } = mongoose;
 
+const workExperienceSchema = new Schema(
+  {
+    jobTitle: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    company: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    employmentType: {
+      type: String,
+      enum: ["Full-time", "Part-time", "Contract", "Internship", "Freelance"],
+      default: "Full-time",
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date, // null means "Present"
+      default: null,
+    },
+    isCurrent: {
+      type: Boolean,
+      default: false,
+    },
+    location: {
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: true },
+);
+
+const educationSchema = new Schema(
+  {
+    degree: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    institution: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    fieldOfStudy: {
+      type: String,
+      trim: true,
+    },
+    startYear: {
+      type: Number,
+    },
+    endYear: {
+      type: Number, // null means ongoing
+      default: null,
+    },
+    isOngoing: {
+      type: Boolean,
+      default: false,
+    },
+    grade: {
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: true },
+);
+
 const userSchema = new Schema(
   {
     role: {
@@ -38,6 +118,27 @@ const userSchema = new Schema(
       trim: true,
     },
 
+    bio: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    workExperience: {
+      type: [workExperienceSchema],
+      default: [],
+    },
+
+    education: {
+      type: [educationSchema],
+      default: [],
+    },
+
+    skills:[{
+      type: String,
+      trim: true
+    }],
+
     status: {
       type: String,
       enum: ["active", "suspended"],
@@ -55,7 +156,7 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Hash password before saving

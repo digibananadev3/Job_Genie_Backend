@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import CandidateProfile from "../models/candidate_profile.model.js";
 import Company from "../models/company.model.js";
 import Job from "../models/job.model.js";
@@ -9,6 +10,7 @@ import JobApplication from "../models/job_application.model.js";
 export const applyToJob = async (req, res) => {
   try {
     const candidateId = req.user._id;
+    console.log("candidateId", candidateId);
     const { jobId } = req.params;
     const { coverLetter } = req.body;
 
@@ -468,6 +470,167 @@ export const adminGetAllApplications = async (req, res) => {
       pages: Math.ceil(total / Number(limit)),
       count: applications.length,
       data: applications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+
+
+// =================================================================================
+//    Check if Candidate Applied to a Job
+// =================================================================================
+export const hasAppliedToJob = async (req, res) => {
+  try {
+    const candidateId = req.user._id;
+    const { jobId } = req.params;
+
+    if (!jobId) {
+      return res.status(400).json({
+        success: false,
+        message: "Job ID is required",
+      });
+    }
+
+    const application = await JobApplication.findOne({
+      jobId,
+      candidateId,
+    }).select("_id status appliedAt");
+
+    return res.json({
+      success: true,
+      applied: !!application, // true/false
+      data: application || null,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// =================================================================================
+//    Get All Applied Jobs by Candidate  (with search by job title / company name)
+// =================================================================================
+export const userAllAppliedJobs = async (req, res) => {
+  try {
+    const candidateId = req.user._id;
+    const { search, status, page = 1, limit = 10 } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Base pipeline
+    const pipeline = [
+
+      // Step 1: Match only this candidate's applications
+      {
+        $match: {
+          candidateId: new mongoose.Types.ObjectId(candidateId),
+          ...(status && { status }),
+        },
+      },
+
+      // Step 2: Join Job
+      {
+        $lookup: {
+          from: "jobs",
+          localField: "jobId",
+          foreignField: "_id",
+          as: "job",
+        },
+      },
+      { $unwind: "$job" },
+
+      // Step 3: Join Company from Job
+      {
+        $lookup: {
+          from: "companies",
+          localField: "job.companyId",
+          foreignField: "_id",
+          as: "company",
+        },
+      },
+      { $unwind: "$company" },
+
+      // Step 4: Filter out deleted companies
+      {
+        $match: {
+          "company.isDeleted": false,
+        },
+      },
+
+      // Step 5: Search by job title OR company name (case-insensitive)
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { "job.title": { $regex: search, $options: "i" } },
+                  { "company.companyName": { $regex: search, $options: "i" } },
+                ],
+              },
+            },
+          ]
+        : []),
+
+      // Step 6: Shape the output
+      {
+        $project: {
+          _id: 1,
+          status: 1,
+          appliedAt: 1,
+          coverLetter: 1,
+          resumeUsed: 1,
+          matchScore: 1,
+          job: {
+            _id: "$job._id",
+            title: "$job.title",
+            jobType: "$job.jobType",
+            location: "$job.location",
+            salary: "$job.salary",
+            expiresAt: "$job.expiresAt",
+          },
+          company: {
+            _id: "$company._id",
+            companyName: "$company.companyName",
+            logo: "$company.logo",
+            industry: "$company.industry",
+          },
+        },
+      },
+
+      // Step 7: Sort by latest applied first
+      { $sort: { appliedAt: -1 } },
+
+      // Step 8: Pagination — run count and data in parallel
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          data: [{ $skip: skip }, { $limit: Number(limit) }],
+        },
+      },
+    ];
+
+    const [result] = await JobApplication.aggregate(pipeline);
+
+    const total = result.total[0]?.count || 0;
+
+    return res.json({
+      success: true,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+      count: result.data.length,
+      data: result.data,
     });
   } catch (error) {
     return res.status(500).json({

@@ -5,6 +5,9 @@ import {
   generateRefreshToken,
 } from "../utils/jwt.utils.js";
 
+
+
+
 //    ======================================================
 //       Register User
 //    ======================================================
@@ -124,6 +127,33 @@ export const loginUser = async (req, res) => {
 };
 
 //    ======================================================
+//       Logout User
+//    ======================================================
+export const logoutUser = async (req, res) => {
+  try {
+    return res
+      .clearCookie("accessToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      })
+      .clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      })
+      .status(200)
+      .json({
+        success: true,
+        message: "Logged out successfully",
+      });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//    ======================================================
 //       Get All Users
 //    ======================================================
 export const getUsers = async (req, res) => {
@@ -169,32 +199,28 @@ export const getUser = async (req, res) => {
 //    ======================================================
 export const updateUser = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user._id; // Use userId from params or fallback to authenticated user's ID
-    const { name, email, password, role } = req.body;
+    const userId = req.params.userId || req.user._id;
+    const { name, email, phone, bio, workExperience, education, skills } =
+      req.body;
 
-    // Check if the user exists and is active
     const userExist = await User.findById(userId);
-
 
     if (!userExist || userExist.status !== "active") {
       return res.status(404).json({ message: "User not found" });
     }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
 
     const user = await User.findByIdAndUpdate(
       { _id: userId },
       {
         ...(name && { name }),
         ...(email && { email }),
-        ...(password && { password: hashedPassword }),
-        ...(role && { role }),
+        ...(phone && { phone }),
+        ...(bio !== undefined && { bio }),
+        ...(workExperience && { workExperience }),
+        ...(education && { education }),
+        ...(skills && { skills }),
       },
-      {
-        new: true,
-      },
+      { new: true },
     ).select("-password");
 
     res.status(200).json({
@@ -302,5 +328,86 @@ export const permanentDeleteUser = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+//    ======================================================
+//       Change User Password
+//    ======================================================
+export const changeUserPassword = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    console.log("userId", userId);
+    console.log("Body", req.body);
+
+    // Validate fields
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password, new password and confirm password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirm password do not match",
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(userId);
+
+    if (!user || user.status !== "active") {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check current password is correct
+    const isPasswordCorrect = await user.comparePassword(currentPassword);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Check new password is not same as current password
+    const isSamePassword = await user.comparePassword(newPassword);
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as current password",
+      });
+    }
+
+    // Update password — pre save hook will hash it automatically
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

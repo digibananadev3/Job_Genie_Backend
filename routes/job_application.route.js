@@ -10,6 +10,8 @@ import {
   updateApplicationStatus,
   saveMatchScore,
   adminGetAllApplications,
+  hasAppliedToJob,
+  userAllAppliedJobs,
 } from "../controllers/job_application.controller.js";
 
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -110,5 +112,17 @@ router.get(
   roleMiddleware("admin"),
   adminGetAllApplications,
 );
+
+
+
+
+router.get(
+  "/jobs/:jobId/has-applied",
+  authMiddleware,
+  hasAppliedToJob
+);
+
+
+router.get("/my-applications", authMiddleware, userAllAppliedJobs);
 
 export default router;
