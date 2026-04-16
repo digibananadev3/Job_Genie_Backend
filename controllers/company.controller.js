@@ -3,73 +3,54 @@ import fs from "fs";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import Company from "../models/company.model.js";
 
-// =================================================================================
-//    Create Company Controllers ( Employer Profile CRUD )
-// =================================================================================
 export const createCompany = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const existingCompany = await Company.findOne({ userId });
+    // const existingCompany = await Company.findOne({ userId });
 
-    if (existingCompany) {
-      return res.status(400).json({
-        success: false,
-        message: "Company profile already exists",
-      });
-    }
+    // if (existingCompany) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Company profile already exists",
+    //   });
+    // }
 
-    const logoFile = req.files?.logo?.[0];
-    const bannerFile = req.files?.bannerImage?.[0];
-
-    let logo = null;
-    let bannerImage = null;
-    let culturePhotos = [];
-
-    // Upload logo
-    if (logoFile) {
-      const result = await uploadToCloudinary(logoFile);
-
-      logo = {
-        url: result.secure_url,
-        public_id: result.public_id,
-      };
-
-      if (fs.existsSync(logoFile.path)) fs.unlinkSync(logoFile.path);
-    }
-
-    // Upload banner
-    if (bannerFile) {
-      const result = await uploadToCloudinary(bannerFile);
-
-      bannerImage = {
-        url: result.secure_url,
-        public_id: result.public_id,
-      };
-
-      if (fs.existsSync(bannerFile.path)) fs.unlinkSync(bannerFile.path);
-    }
-
-    // Upload culture photos
-    if (req.files?.culturePhotos) {
-      for (let file of req.files.culturePhotos) {
-        const result = await uploadToCloudinary(file);
-
-        culturePhotos.push({
-          url: result.secure_url,
-          public_id: result.public_id,
-        });
-
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      }
-    }
-
-    const company = await Company.create({
-      ...req.body,
-      userId,
+    const {
+      companyName,
       logo,
       bannerImage,
+      website,
+      industry,
+      companySize,
+      foundedYear,
+      city,
+      state,
+      country,
+      about,
+      introVideo,
       culturePhotos,
+      whyJoinUs,
+      isPremium,
+    } = req.body;
+
+    const company = await Company.create({
+      companyName,
+      logo,          // already { url, public_id } from frontend
+      bannerImage,   // already { url, public_id } from frontend
+      website,
+      industry,
+      companySize,
+      foundedYear,
+      city,
+      state,
+      country,
+      about,
+      introVideo,
+      culturePhotos, // already [{ url, public_id }, ...] from frontend
+      whyJoinUs,
+      isPremium,
+      userId,
     });
 
     return res.status(201).json({

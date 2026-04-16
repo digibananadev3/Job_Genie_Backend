@@ -182,9 +182,21 @@ export const getAllJobs = async (req, res) => {
       ],
     };
 
-    if (search) {
-      query.$text = { $search: search };
-    }
+if (search) {
+  const regex = new RegExp(search, "i");
+
+  query.$and.push({
+    $or: [
+      { title: regex },
+      { description: regex },
+      { skillsRequired: regex },
+      { "location.city": regex },
+      { "location.state": regex },
+      { "location.country": regex },
+      { jobType: regex },
+    ],
+  });
+}
 
     if (jobType) query.jobType = jobType;
 

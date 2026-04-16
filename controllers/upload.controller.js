@@ -11,6 +11,7 @@ import {v2 as cloudinary} from "cloudinary";
 export const uploadSingle = async (req, res) => {
   try {
     const file = req.file;
+    console.log("file", file);
 
     if (!req.file) {
       return res.status(400).json({

@@ -32,7 +32,11 @@ app.use(express.urlencoded({extended: true}));
 const PORT = process.env.PORT;
 
 
-
+app.get("/", (req, res)=>{
+  res.status(200).json({
+    message : "Welcome to the Home Page"
+  })
+})
 app.use("/api/user", userRouter);
 app.use("/api/candidate", candidateRouter);
 app.use("/api/company", companyRouter);
